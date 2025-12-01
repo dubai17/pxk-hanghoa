@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phiếu Xuất Kho Bán Hàng</title>
-    <!-- Tải Tailwind CSS --><script src="https://cdn.tailwindcss.com"></script>
-    <!-- Tải Font Inter --><link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
-    <!-- Tải Font Awesome cho icon --><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <title>Phiếu Xuất Kho Bán Hàng - Quản Lý Excel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
     <style>
         /* Thiết lập font Inter cho toàn bộ tài liệu */
         body {
@@ -16,25 +18,23 @@
         }
         /* Cấu hình chung cho các ô nhập liệu (input-like) */
         .editable-field {
-            /* Loại bỏ border, nhưng giữ lại padding/margin để căn chỉnh */
             outline: none;
             border: none;
-            cursor: pointer; /* Giả lập hành vi như text bình thường */
+            cursor: pointer;
             padding: 0;
             margin: 0;
-            min-width: 20px; /* Đảm bảo các trường trống vẫn có thể click */
+            min-width: 20px;
             display: inline-block;
-            line-height: 1.5; /* Căn chỉnh với text xung quanh */
-            /* Thêm chuyển đổi nhẹ để hiển thị trạng thái edit */
+            line-height: 1.5;
             transition: background-color 0.15s ease-in-out;
         }
 
         .editable-field[contenteditable="true"]:focus {
-            background-color: #fef3c7; /* bg-amber-100 khi focus trong chế độ chỉnh sửa */
+            background-color: #fef3c7; /* bg-amber-100 khi focus */
             cursor: text;
         }
 
-        /* Thiết kế cho các ô nhập liệu trong bảng (không gạch chân) */
+        /* Thiết kế cho các ô nhập liệu trong bảng */
         .table-input {
             width: 100%;
             height: 100%;
@@ -43,27 +43,24 @@
             border: none;
             outline: none;
             background-color: transparent;
-            text-align: right; /* Mặc định căn phải cho số */
-        }
-
-        /* Tên hàng căn trái */
-        .table-input.text-left {
-             text-align: left;
-        }
-
-        /* Định dạng cho các ô không cho phép nhập liệu */
-        .read-only-cell {
-            background-color: #f9fafb; /* Dễ phân biệt hơn với ô nhập liệu */
             text-align: right;
         }
 
-        /* Thêm hiệu ứng cho nút khi hover */
+        .table-input.text-left { text-align: left; }
+
+        /* Định dạng cho các ô không cho phép nhập liệu */
+        .read-only-cell {
+            background-color: #f9fafb;
+            text-align: right;
+        }
+
+        /* Hiệu ứng nút */
         .btn-hover-effect:hover {
             opacity: 0.9;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
         }
 
-        /* Ẩn input spinner cho số lượng */
+        /* Ẩn input spinner */
         input[type='number']::-webkit-inner-spin-button,
         input[type='number']::-webkit-outer-spin-button {
             -webkit-appearance: none;
@@ -72,18 +69,14 @@
 
         /* Định dạng cho chế độ in */
         @media print {
-            /* Ẩn nút và các thành phần không cần thiết */
             #toggle-edit-btn-container,
             #table-actions-container,
+            #print-btn-container,
             .no-print {
                 display: none !important;
             }
-
-            /* Đảm bảo phiếu in ra không có màu nền và border */
             body {
                 background-color: white !important;
-                padding: 0;
-                margin: 0;
             }
             .invoice-container {
                 box-shadow: none !important;
@@ -93,55 +86,58 @@
                 margin: 0 !important;
                 width: 100%;
             }
-
-            /* Đảm bảo các trường nhập liệu không có nền highlight */
-            .editable-field, .table-input {
-                background-color: transparent !important;
-                cursor: default !important;
-            }
-            /* Đảm bảo các trường không có đường viền khi in */
-            .border {
-                border-color: #000 !important; /* Đen để dễ nhìn */
-            }
         }
     </style>
 </head>
 <body class="p-4 sm:p-8">
 
     <div id="app-container" class="flex flex-col items-center min-h-screen">
-        <!-- Khu vực nút điều khiển (Luôn hiển thị ở trên cùng) --><div id="toggle-edit-btn-container" class="mb-6 w-full max-w-3xl flex justify-end">
-             <button id="toggle-edit-btn" class="flex items-center space-x-2 px-6 py-3 rounded-xl bg-gray-600 text-white font-semibold text-lg btn-hover-effect transition-all duration-200">
+        
+        <div id="toggle-edit-btn-container" class="mb-6 w-full max-w-3xl flex flex-wrap justify-end gap-3">
+            
+            <input type="file" id="import-excel-input" accept=".xlsx, .xls" class="hidden" />
+
+            <button id="import-excel-btn" class="flex items-center space-x-2 px-4 py-3 rounded-xl bg-teal-600 text-white font-semibold text-sm btn-hover-effect transition-all duration-200">
+                <i class="fas fa-file-import"></i>
+                <span>Nhập PXK (Excel)</span>
+            </button>
+
+            <button id="export-excel-btn" class="flex items-center space-x-2 px-4 py-3 rounded-xl bg-green-600 text-white font-semibold text-sm btn-hover-effect transition-all duration-200">
+                <i class="fas fa-file-excel"></i>
+                <span>Lưu PXK (Excel)</span>
+            </button>
+
+            <button id="toggle-edit-btn" class="flex items-center space-x-2 px-6 py-3 rounded-xl bg-gray-600 text-white font-semibold text-lg btn-hover-effect transition-all duration-200">
                 <i class="fas fa-edit"></i>
                 <span>Sửa PXK</span>
             </button>
         </div>
 
-        <!-- Khung chính Phiếu Xuất Kho --><div class="invoice-container bg-white p-6 sm:p-10 rounded-xl shadow-2xl w-full max-w-3xl border border-gray-200">
+        <div class="invoice-container bg-white p-6 sm:p-10 rounded-xl shadow-2xl w-full max-w-3xl border border-gray-200">
 
-            <!-- Tiêu đề --><header class="text-center mb-6">
+            <header class="text-center mb-6">
                 <h1 class="text-3xl font-bold text-gray-900 uppercase">PHIẾU XUẤT KHO BÁN HÀNG</h1>
-                <!-- Cập nhật thông tin người bán theo ảnh mới --><p class="text-sm mt-1 text-gray-600">Ngày: <span id="current-date" class="editable-field" contenteditable="false"></span></p>
+                <p class="text-sm mt-1 text-gray-600">Ngày: <span id="current-date" class="editable-field" contenteditable="false"></span></p>
                 <p class="text-sm text-gray-600">Nhân viên bán hàng: <span id="seller-name" class="editable-field" contenteditable="false">TRẦN VĂN QUYỀN</span></p>
                 <p class="text-sm text-gray-600">SĐT: <span id="seller-phone" class="editable-field" contenteditable="false">0896581688</span></p>
             </header>
 
-            <!-- Thông tin chung --><div class="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <!-- Cột trái: Người mua - Đặt lại giá trị mặc định là A, B, C, D --><div>
+            <div class="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div>
                     <p>Người mua: <span id="buyer-name" class="editable-field" contenteditable="false">A</span></p>
                     <p>SĐT: <span id="buyer-phone" class="editable-field" contenteditable="false">B</span></p>
                     <p>Địa chỉ: <span id="buyer-address" class="editable-field" contenteditable="false">C</span></p>
                     <p>Diễn giải: <span id="description" class="editable-field" contenteditable="false">D</span></p>
                 </div>
-                <!-- Cột phải: Số phiếu --><div class="sm:text-right sm:mt-0 mt-4">
+                <div class="sm:text-right sm:mt-0 mt-4">
                     <p class="font-bold text-lg">SỐ: <span id="invoice-number" class="editable-field" contenteditable="false" data-field-name="invoice-number"></span></p>
                 </div>
             </div>
 
-            <!-- Bảng Chi tiết Hàng hóa --><div class="overflow-x-auto mb-6 border border-gray-300 rounded-lg">
+            <div class="overflow-x-auto mb-6 border border-gray-300 rounded-lg">
                 <table class="min-w-full divide-y divide-gray-300 text-sm">
                     <thead>
                         <tr>
-                            <!-- Điều chỉnh width cho mobile: giảm width cột STT, Đơn vị, Số lượng, Đơn giá -->
                             <th class="px-3 py-3 text-center font-semibold bg-blue-500 text-white w-10 border-r border-gray-300 rounded-tl-lg">STT</th>
                             <th class="px-3 py-3 text-left font-semibold bg-blue-500 text-white w-[45%] border-r border-gray-300">TÊN HÀNG</th>
                             <th class="px-3 py-3 text-center font-semibold bg-blue-500 text-white w-16 border-r border-gray-300">ĐƠN VỊ</th>
@@ -151,11 +147,11 @@
                         </tr>
                     </thead>
                     <tbody id="invoice-body" class="bg-white divide-y divide-gray-200">
-                        <!-- Dữ liệu sản phẩm sẽ được chèn ở đây --></tbody>
+                        </tbody>
                 </table>
             </div>
 
-            <!-- Khu vực Tổng kết và Tính toán --><div class="flex justify-end">
+            <div class="flex justify-end">
                 <div class="w-full sm:w-2/3 lg:w-1/2">
                     <div class="grid grid-cols-2 gap-y-2 text-sm mb-3">
                         <div class="font-semibold">Cộng tiền hàng:</div>
@@ -163,12 +159,12 @@
 
                         <div class="font-semibold">Tiền thuế GTGT (VND):</div>
                         <div class="text-right">
-                            <!-- Trường nhập liệu cho thuế GTGT --><span id="vat-amount" class="editable-field text-right block" contenteditable="false" data-field-name="vat-amount" data-type="currency">0</span>
+                            <span id="vat-amount" class="editable-field text-right block" contenteditable="false" data-field-name="vat-amount" data-type="currency">0</span>
                         </div>
 
                         <div class="font-semibold">Tiền Khách Đã Chuyển Khoản (Cọc):</div>
                         <div class="text-right">
-                            <!-- ĐÃ CẬP NHẬT: Đặt lại giá trị mặc định là 0 --><span id="deposit-amount" class="editable-field text-right block" contenteditable="false" data-field-name="deposit-amount" data-type="currency">0</span>
+                            <span id="deposit-amount" class="editable-field text-right block" contenteditable="false" data-field-name="deposit-amount" data-type="currency">0</span>
                         </div>
                     </div>
 
@@ -179,17 +175,17 @@
                 </div>
             </div>
 
-            <!-- Số tiền viết bằng chữ --><div class="mt-6 text-sm">
+            <div class="mt-6 text-sm">
                 <p class="font-semibold">Số tiền viết bằng chữ:</p>
                 <div id="amount-in-words" class="editable-field font-italic text-gray-700 mt-1" contenteditable="false">Không đồng chẵn.</div>
             </div>
 
-            <!-- Ghi chú/Chứng từ --><div class="mt-4 text-sm">
+            <div class="mt-4 text-sm">
                 <p class="font-semibold">Số chứng từ gốc kèm theo:</p>
                 <div id="attachments" class="editable-field text-gray-700 mt-1" contenteditable="false">...</div>
             </div>
 
-            <!-- Chữ ký --><div class="grid grid-cols-3 text-center mt-16 text-sm">
+            <div class="grid grid-cols-3 text-center mt-16 text-sm">
                 <div>
                     <p class="font-semibold">Người mua hàng</p>
                     <p class="text-xs italic mt-12">(Ký, họ tên)</p>
@@ -204,7 +200,8 @@
                 </div>
             </div>
 
-        </div> <!-- Kết thúc invoice-container --><!-- Khu vực nút thao tác (chỉ hiển thị khi Edit Mode) --><div id="table-actions-container" class="mt-6 w-full max-w-3xl flex justify-between space-x-4 no-print" style="display:none;">
+        </div> 
+        <div id="table-actions-container" class="mt-6 w-full max-w-3xl flex justify-between space-x-4 no-print" style="display:none;">
             <div class="flex space-x-4">
                 <button id="add-row-btn" class="flex items-center space-x-2 px-4 py-2 rounded-lg bg-green-600 text-white font-semibold text-sm btn-hover-effect">
                     <i class="fas fa-plus"></i>
@@ -217,135 +214,91 @@
             </div>
         </div>
 
-        <!-- Nút In (Chỉ hiển thị khi Read-Only Mode) --><div id="print-btn-container" class="mt-6 w-full max-w-3xl flex justify-center no-print" style="display:block;">
+        <div id="print-btn-container" class="mt-6 w-full max-w-3xl flex justify-center no-print" style="display:block;">
             <button id="print-btn" class="flex items-center space-x-2 px-8 py-3 rounded-xl bg-blue-600 text-white font-semibold text-lg btn-hover-effect transition-all duration-200">
                 <i class="fas fa-print"></i>
                 <span>In Phiếu</span>
             </button>
         </div>
 
-
-    </div> <!-- Kết thúc app-container --><script>
+    </div> <script>
         // =======================================================
-        // CÁC HÀM XỬ LÝ CHÍNH VÀ TIỆN ÍCH
+        // CÁC HÀM TIỆN ÍCH CƠ BẢN
         // =======================================================
-
-        // Hàm chuyển số thành chuỗi tiền tệ (dấu chấm phân cách hàng nghìn)
         const formatCurrency = (number) => {
             if (number === null || number === undefined || isNaN(number)) return '0';
-            // Làm tròn số và chuyển sang chuỗi, sau đó thêm dấu chấm
             return Math.round(number).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
         };
 
-        // Hàm chuyển chuỗi tiền tệ (có dấu chấm) hoặc chuỗi số lớn thành số
         const parseCurrency = (text) => {
             if (!text) return 0;
-            // Loại bỏ tất cả dấu chấm (dấu phân cách hàng nghìn)
-            const cleanText = text.replace(/[^0-9]/g, '');
+            const cleanText = text.toString().replace(/[^0-9]/g, '');
             return parseInt(cleanText, 10) || 0;
         };
 
-        // Hàm tự động tạo số PXK (PXK + DDMMYY + Chữ cái A-Z ngẫu nhiên + 4 chữ số ngẫu nhiên)
         const generateInvoiceNumber = () => {
             const now = new Date();
             const day = String(now.getDate()).padStart(2, '0');
             const month = String(now.getMonth() + 1).padStart(2, '0');
             const year = String(now.getFullYear()).slice(2);
             const datePart = day + month + year;
-
-            const randomChar = String.fromCharCode(65 + Math.floor(Math.random() * 26)); // A-Z
-            const randomDigits = String(Math.floor(1000 + Math.random() * 9000)); // 4 chữ số
+            const randomChar = String.fromCharCode(65 + Math.floor(Math.random() * 26)); 
+            const randomDigits = String(Math.floor(1000 + Math.random() * 9000)); 
             return `PXK${datePart}${randomChar}${randomDigits}`;
         };
 
-        // Hàm cập nhật ngày hiện tại
         const updateCurrentDate = () => {
             const dateElement = document.getElementById('current-date');
-            if (dateElement) {
+            if (dateElement && !dateElement.textContent) { // Chỉ cập nhật nếu chưa có dữ liệu (để khi load excel không bị ghi đè)
                 const now = new Date();
                 const options = { day: '2-digit', month: 'long', year: 'numeric' };
-                // Định dạng theo kiểu: 29 tháng 10, 2025
                 dateElement.textContent = now.toLocaleDateString('vi-VN', options);
             }
         };
 
-        // Mảng đơn vị và chữ số cho việc đọc số tiền (Tiếng Việt)
         const unitDigit = ['', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
         const unitGroup = ['', 'nghìn', 'triệu', 'tỷ'];
 
-        // Hàm đọc 3 chữ số (0-999)
         const readThreeDigits = (num, isFirstGroup) => {
             if (num === 0) return ''; 
-
             let str = '';
             const h = Math.floor(num / 100);
             const t = Math.floor((num % 100) / 10);
             const u = num % 10;
-
-            // Hàng trăm
-            if (h !== 0) {
-                str += unitDigit[h] + ' trăm';
-            }
-
-            // Hàng chục
+            if (h !== 0) str += unitDigit[h] + ' trăm';
             if (t !== 0) {
                 if (str) str += ' ';
-                if (t === 1) {
-                    str += 'mười';
-                } else {
-                    str += unitDigit[t] + ' mươi';
-                }
-            } else if (h !== 0 && u !== 0) { // Xử lý "linh" (ví dụ: 105)
+                if (t === 1) str += 'mười';
+                else str += unitDigit[t] + ' mươi';
+            } else if (h !== 0 && u !== 0) {
                 if (str) str += ' ';
                 str += 'linh';
             }
-
-
-            // Hàng đơn vị
             if (u !== 0) {
                 if (str) str += ' ';
-                if (u === 1 && t !== 0 && t !== 1) { // Xử lý 'mốt' (21, 31, ...)
-                    str += 'mốt';
-                } else if (u === 5 && t !== 0) { // Xử lý 'lăm' (15, 25, ...)
-                    str += 'lăm';
-                } else {
-                     str += unitDigit[u];
-                }
+                if (u === 1 && t !== 0 && t !== 1) str += 'mốt';
+                else if (u === 5 && t !== 0) str += 'lăm';
+                else str += unitDigit[u];
             }
-
-            // Xử lý 'mười' và 'mươi'
-            str = str.replace(/mươi một/g, 'mươi mốt');
-            str = str.replace(/mười một/g, 'mười một');
-            str = str.replace(/mươi năm/g, 'mươi lăm');
-            str = str.replace(/mười năm/g, 'mười lăm');
-            
+            str = str.replace(/mươi một/g, 'mươi mốt').replace(/mười một/g, 'mười một').replace(/mươi năm/g, 'mươi lăm').replace(/mười năm/g, 'mười lăm');
             return str.trim();
         };
 
-        // Hàm chuyển số thành chữ (logic tiếng Việt)
         const numberToVietnameseWords = (number) => {
             if (isNaN(number) || number < 0) return 'Số tiền không hợp lệ.';
             if (number === 0) return 'Không đồng chẵn.';
-
             let num = Math.round(number); 
             let str = '';
             let unitIndex = 0;
             let isFirstNonZeroGroup = true;
-
-            // Lặp qua các nhóm 3 chữ số (tỷ, triệu, nghìn, đơn vị)
             while (num > 0) {
                 const threeDigits = num % 1000;
                 num = Math.floor(num / 1000);
-
                 if (threeDigits > 0) {
                     const part = readThreeDigits(threeDigits, isFirstNonZeroGroup);
-
                     if (part) {
                         let partWithUnit = part;
-                        if (unitIndex > 0) {
-                            partWithUnit += ' ' + unitGroup[unitIndex];
-                        }
-                        // Chèn phần mới vào trước chuỗi cũ
+                        if (unitIndex > 0) partWithUnit += ' ' + unitGroup[unitIndex];
                         if (str) str = partWithUnit + ' ' + str;
                         else str = partWithUnit;
                     }
@@ -353,8 +306,6 @@
                 }
                 unitIndex++;
             }
-
-            // Xóa khoảng trắng thừa và viết hoa chữ cái đầu
             str = str.trim();
             if (str) {
                 str = str.charAt(0).toUpperCase() + str.slice(1);
@@ -363,13 +314,11 @@
             return 'Không đồng chẵn.';
         };
 
-
         // =======================================================
-        // QUẢN LÝ DÒNG BẢNG VÀ HIỂN THỊ DỮ LIỆU
+        // QUẢN LÝ DỮ LIỆU VÀ GIAO DIỆN
         // =======================================================
 
         let invoiceItems = [
-            // Cập nhật: Đặt tất cả quantity và price về 0
             { name: '', unit: '', quantity: 0, price: 0, total: 0 },
             { name: '', unit: '', quantity: 0, price: 0, total: 0 },
             { name: '', unit: '', quantity: 0, price: 0, total: 0 },
@@ -385,25 +334,20 @@
         const depositAmountElement = document.getElementById('deposit-amount');
         const amountInWordsElement = document.getElementById('amount-in-words');
 
-        // Hàm cập nhật chỉ giá trị Total trong dòng (Không vẽ lại toàn bộ bảng)
         const updateRowTotal = (rowIndex) => {
             const rowElement = bodyTable.rows[rowIndex];
             if (rowElement) {
-                // Cột Thành Tiền là cột thứ 6 (index 5)
                 const totalCell = rowElement.cells[5]; 
                 const newTotal = invoiceItems[rowIndex].total;
                 totalCell.textContent = formatCurrency(newTotal);
             }
         }
 
-        // Hàm vẽ lại bảng chi tiết
         const renderTable = () => {
             bodyTable.innerHTML = '';
             invoiceItems.forEach((item, index) => {
                 const row = document.createElement('tr');
-                // Hiển thị Số lượng là 0 nếu item.quantity là 0
                 const quantityDisplay = item.quantity === 0 ? '0' : item.quantity;
-
                 row.innerHTML = `
                     <td class="text-center px-3 py-2 text-gray-700 border-r border-gray-200">${index + 1}</td>
                     <td class="px-0 py-0 text-left border-r border-gray-200">
@@ -424,44 +368,27 @@
                 `;
                 bodyTable.appendChild(row);
             });
-
-            // Cập nhật sự kiện cho các ô nhập liệu mới
             attachTableEditListeners();
         };
 
-        // =======================================================
-        // LOGIC TÍNH TOÁN TỔNG THỂ
-        // =======================================================
-
-        // Hàm tính toán và cập nhật tất cả các giá trị tổng kết
         const calculateTotals = () => {
             let subTotal = 0;
             invoiceItems.forEach(item => {
-                // Đảm bảo item.total là số
                 subTotal += (item.total || 0);
             });
-
-            // Lấy giá trị Thuế GTGT và Tiền Cọc (đã được định dạng)
             const vatAmount = parseCurrency(vatAmountElement.textContent);
             const depositAmount = parseCurrency(depositAmountElement.textContent);
 
-            // Cộng tiền hàng
             subTotalElement.textContent = formatCurrency(subTotal);
-
-            // Tổng tiền thanh toán (Cần Thu): (Cộng tiền hàng + Tiền thuế GTGT) - Tiền Khách Đã Chuyển Khoản (Cọc)
             const grandTotal = subTotal + vatAmount - depositAmount;
             grandTotalElement.textContent = formatCurrency(grandTotal);
-
-            // Cập nhật số tiền viết bằng chữ
             amountInWordsElement.textContent = numberToVietnameseWords(grandTotal);
         };
 
-
         // =======================================================
-        // XỬ LÝ SỰ KIỆN CHỈNH SỬA
+        // XỬ LÝ SỰ KIỆN VÀ CHỨC NĂNG EXCEL
         // =======================================================
 
-        // Hàm chuyển đổi trạng thái chỉnh sửa
         const toggleEditMode = () => {
             isEditMode = !isEditMode;
             const toggleBtn = document.getElementById('toggle-edit-btn');
@@ -470,134 +397,81 @@
             const tableActionsContainer = document.getElementById('table-actions-container');
             const printBtnContainer = document.getElementById('print-btn-container');
 
-            // 1. Cập nhật nút và container
             if (isEditMode) {
                 toggleBtnText.textContent = 'Khóa PXK';
                 toggleBtn.className = 'flex items-center space-x-2 px-6 py-3 rounded-xl bg-amber-600 text-white font-semibold text-lg btn-hover-effect transition-all duration-200';
                 toggleBtnIcon.className = 'fas fa-lock-open';
-                tableActionsContainer.style.display = 'flex'; // Hiển thị nút thêm/xóa
-                printBtnContainer.style.display = 'none'; // Ẩn nút In
+                tableActionsContainer.style.display = 'flex';
+                printBtnContainer.style.display = 'none';
             } else {
                 toggleBtnText.textContent = 'Sửa PXK';
                 toggleBtn.className = 'flex items-center space-x-2 px-6 py-3 rounded-xl bg-gray-600 text-white font-semibold text-lg btn-hover-effect transition-all duration-200';
                 toggleBtnIcon.className = 'fas fa-edit';
-                tableActionsContainer.style.display = 'none'; // Ẩn nút thêm/xóa
-                printBtnContainer.style.display = 'block'; // Hiện nút In
+                tableActionsContainer.style.display = 'none';
+                printBtnContainer.style.display = 'block';
             }
 
-            // 2. Cập nhật trạng thái contenteditable cho tất cả các trường
             document.querySelectorAll('.editable-field, .table-input').forEach(el => {
                 el.setAttribute('contenteditable', isEditMode);
             });
-
-            // 3. Vẽ lại bảng để đảm bảo các ô input cũng được cập nhật
             renderTable();
         };
 
-        // Xử lý sự kiện chỉnh sửa trong bảng chi tiết
         const handleTableEdit = (e) => {
             const el = e.target;
             const row = parseInt(el.dataset.row);
             const field = el.dataset.field;
             let value = el.textContent.trim();
-
-            if (isNaN(row)) return; // Không phải ô trong bảng
+            if (isNaN(row)) return;
 
             if (field === 'quantity') {
-                // Sửa lỗi: Nếu người dùng xóa hết (value là rỗng), đặt quantity = 0, nhưng vẫn giữ textContent trống
                 let numValue = parseCurrency(value);
                 invoiceItems[row].quantity = numValue;
-                
-                // Xử lý hiển thị 0 khi blur nếu giá trị là 0 hoặc rỗng
                 if (e.type === 'blur') {
-                    if (numValue === 0 || value === '') {
-                        el.textContent = '0'; 
-                    } else {
-                        // Đảm bảo không có dấu phân cách cho số lượng
-                        el.textContent = numValue;
-                    }
+                    el.textContent = (numValue === 0 || value === '') ? '0' : numValue;
                 }
-                
             } else if (field === 'price') {
-                // Đơn Giá: Số tiền
                 let numValue = parseCurrency(value);
                 invoiceItems[row].price = numValue;
-                
-                // Định dạng lại khi mất focus (blur) hoặc sau khi nhấn Enter
                 if (e.type === 'blur' || e.key === 'Enter') {
                     el.textContent = formatCurrency(numValue);
                 }
             } else if (field === 'name' || field === 'unit') {
-                // Tên Hàng / Đơn Vị
                 invoiceItems[row][field] = value;
             }
 
-            // Tính toán lại Total cho dòng này
             invoiceItems[row].total = (invoiceItems[row].quantity || 0) * (invoiceItems[row].price || 0);
-
-            // Cập nhật lại giá trị Thành tiền trong dòng ngay lập tức
             updateRowTotal(row);
-
-            // Tính toán lại Grand Total
             calculateTotals();
-
-            // Nếu nhấn Enter, ngăn xuống dòng và chuyển focus
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                // Tự động chuyển focus nếu cần (chức năng nâng cao, hiện tại chỉ ngăn xuống dòng)
-            }
+            if (e.key === 'Enter') e.preventDefault();
         };
 
-        // Xử lý sự kiện chỉnh sửa cho các trường Tổng kết (VAT, Deposit)
         const handleSummaryEdit = (e) => {
             const el = e.target;
-            const field = el.dataset.fieldName;
             let value = el.textContent.trim();
-
             if (e.type === 'blur' || e.key === 'Enter') {
                 let numValue = parseCurrency(value);
-                
-                // Cập nhật lại định dạng tiền tệ
-                if (value === '' || numValue === 0) {
-                     el.textContent = '0';
-                } else {
-                     el.textContent = formatCurrency(numValue);
-                }
-                
+                el.textContent = (value === '' || numValue === 0) ? '0' : formatCurrency(numValue);
                 calculateTotals();
                 if (e.key === 'Enter') e.preventDefault();
             }
         };
 
-        // Hàm gắn sự kiện chỉnh sửa cho bảng
         const attachTableEditListeners = () => {
-            // Loại bỏ các listener cũ để tránh trùng lặp
-            document.querySelectorAll('.table-input').forEach(el => {
-                 el.removeEventListener('input', handleTableEdit);
-                 el.removeEventListener('blur', handleTableEdit);
-                 el.removeEventListener('keydown', handleTableEdit);
-            });
-
-            // Gắn listener mới
             document.querySelectorAll('.table-input').forEach(el => {
                 el.addEventListener('input', handleTableEdit);
                 el.addEventListener('blur', handleTableEdit);
-                el.addEventListener('keydown', handleTableEdit); // Để bắt Enter
+                el.addEventListener('keydown', handleTableEdit);
             });
         };
 
-        // Hàm gắn sự kiện chỉnh sửa cho các trường tổng kết (VAT, Cọc)
         const attachSummaryEditListeners = () => {
             [vatAmountElement, depositAmountElement].forEach(el => {
                 el.addEventListener('input', handleSummaryEdit);
                 el.addEventListener('blur', handleSummaryEdit);
-                el.addEventListener('keydown', handleSummaryEdit); // Để bắt Enter
+                el.addEventListener('keydown', handleSummaryEdit);
             });
         };
-
-        // =======================================================
-        // HÀM XỬ LÝ THÊM/XÓA DÒNG
-        // =======================================================
 
         const addRow = () => {
             invoiceItems.push({ name: '', unit: '', quantity: 0, price: 0, total: 0 });
@@ -608,54 +482,184 @@
         const removeLastRow = () => {
             if (invoiceItems.length > 1) {
                 invoiceItems.pop();
-                renderTable();
-                calculateTotals();
             } else {
-                // Nếu chỉ còn 1 dòng, có thể reset về 0 thay vì xóa
                 invoiceItems[0] = { name: '', unit: '', quantity: 0, price: 0, total: 0 };
-                renderTable();
-                calculateTotals();
             }
+            renderTable();
+            calculateTotals();
         };
 
-        // =======================================================
-        // KHỞI TẠO ỨNG DỤNG (WINDOW.ONLOAD)
-        // =======================================================
+        // --- CHỨC NĂNG EXCEL (MỚI) ---
 
-        window.onload = () => {
-            // 1. Khởi tạo dữ liệu
-            document.getElementById('invoice-number').textContent = generateInvoiceNumber();
-            updateCurrentDate();
+        // 1. Hàm Xuất Excel
+        const exportToExcel = () => {
+            // Lấy dữ liệu chung
+            const dataCommon = {
+                invoiceNumber: document.getElementById('invoice-number').textContent,
+                date: document.getElementById('current-date').textContent,
+                sellerName: document.getElementById('seller-name').textContent,
+                sellerPhone: document.getElementById('seller-phone').textContent,
+                buyerName: document.getElementById('buyer-name').textContent,
+                buyerPhone: document.getElementById('buyer-phone').textContent,
+                buyerAddress: document.getElementById('buyer-address').textContent,
+                description: document.getElementById('description').textContent,
+                vatAmount: parseCurrency(document.getElementById('vat-amount').textContent),
+                depositAmount: parseCurrency(document.getElementById('deposit-amount').textContent),
+                attachments: document.getElementById('attachments').textContent
+            };
 
-            // 2. Gắn sự kiện cho nút chuyển đổi chế độ
-            document.getElementById('toggle-edit-btn').addEventListener('click', toggleEditMode);
+            // Tạo dữ liệu cho Sheet
+            // Dòng 1: Header thông tin chung
+            // Dòng 2: Giá trị thông tin chung
+            // Dòng 4: Header Bảng hàng hóa
+            // Dòng 5 trở đi: Dữ liệu hàng hóa
 
-            // 3. Gắn sự kiện cho nút thêm/xóa dòng
-            document.getElementById('add-row-btn').addEventListener('click', addRow);
-            document.getElementById('remove-row-btn').addEventListener('click', removeLastRow);
+            const wsData = [
+                // Header Metadata
+                ["Mã Phiếu", "Ngày", "Người Bán", "SĐT Bán", "Người Mua", "SĐT Mua", "Địa Chỉ", "Diễn Giải", "Thuế GTGT", "Tiền Cọc", "Chứng Từ Kèm"],
+                // Value Metadata
+                [
+                    dataCommon.invoiceNumber, dataCommon.date, dataCommon.sellerName, dataCommon.sellerPhone,
+                    dataCommon.buyerName, dataCommon.buyerPhone, dataCommon.buyerAddress, dataCommon.description,
+                    dataCommon.vatAmount, dataCommon.depositAmount, dataCommon.attachments
+                ],
+                [], // Dòng trống
+                // Table Header
+                ["STT", "Tên Hàng", "Đơn Vị", "Số Lượng", "Đơn Giá", "Thành Tiền"]
+            ];
 
-            // 4. Gắn sự kiện cho nút In
-            document.getElementById('print-btn').addEventListener('click', () => {
-                window.print();
+            // Thêm dữ liệu hàng hóa
+            invoiceItems.forEach((item, index) => {
+                wsData.push([
+                    index + 1,
+                    item.name,
+                    item.unit,
+                    item.quantity,
+                    item.price,
+                    item.total
+                ]);
             });
 
-            // 5. Gắn sự kiện cho các trường Tổng kết
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "PhieuXuatKho");
+
+            // Xuất file
+            const fileName = `PXK_${dataCommon.invoiceNumber}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+        };
+
+        // 2. Hàm Nhập Excel
+        const importFromExcel = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                // Giả sử dữ liệu ở Sheet đầu tiên
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                
+                // Chuyển về dạng mảng mảng (Array of Arrays)
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                if (jsonData.length < 2) {
+                    alert("File không đúng định dạng hoặc không có dữ liệu!");
+                    return;
+                }
+
+                // --- 1. Đọc dữ liệu chung (Dòng index 1 - tức dòng thứ 2 trong Excel) ---
+                const metaRow = jsonData[1];
+                if (metaRow) {
+                    document.getElementById('invoice-number').textContent = metaRow[0] || generateInvoiceNumber();
+                    document.getElementById('current-date').textContent = metaRow[1] || '';
+                    document.getElementById('seller-name').textContent = metaRow[2] || '';
+                    document.getElementById('seller-phone').textContent = metaRow[3] || '';
+                    document.getElementById('buyer-name').textContent = metaRow[4] || '';
+                    document.getElementById('buyer-phone').textContent = metaRow[5] || '';
+                    document.getElementById('buyer-address').textContent = metaRow[6] || '';
+                    document.getElementById('description').textContent = metaRow[7] || '';
+                    
+                    const vat = parseFloat(metaRow[8]) || 0;
+                    document.getElementById('vat-amount').textContent = formatCurrency(vat);
+
+                    const deposit = parseFloat(metaRow[9]) || 0;
+                    document.getElementById('deposit-amount').textContent = formatCurrency(deposit);
+
+                    document.getElementById('attachments').textContent = metaRow[10] || '...';
+                }
+
+                // --- 2. Đọc dữ liệu hàng hóa (Từ dòng index 4 - tức dòng thứ 5 trong Excel) ---
+                // Reset mảng hàng hóa
+                invoiceItems = [];
+                
+                // Duyệt từ dòng 5 trở đi
+                for (let i = 4; i < jsonData.length; i++) {
+                    const row = jsonData[i];
+                    // Kiểm tra nếu dòng có dữ liệu (ít nhất có tên hàng)
+                    if (row && (row[1] || row[3] > 0)) {
+                        invoiceItems.push({
+                            name: row[1] || '',
+                            unit: row[2] || '',
+                            quantity: parseFloat(row[3]) || 0,
+                            price: parseFloat(row[4]) || 0,
+                            total: parseFloat(row[5]) || 0
+                        });
+                    }
+                }
+
+                // Nếu không có hàng hóa nào, thêm 1 dòng trống
+                if (invoiceItems.length === 0) {
+                    invoiceItems.push({ name: '', unit: '', quantity: 0, price: 0, total: 0 });
+                }
+
+                // --- 3. Render và Tính toán lại ---
+                renderTable();
+                calculateTotals();
+                
+                // Reset input file để có thể chọn lại cùng 1 file nếu muốn
+                event.target.value = '';
+                
+                alert("Đã nhập dữ liệu thành công!");
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
+        window.onload = () => {
+            if(!document.getElementById('current-date').textContent) {
+                 updateCurrentDate();
+                 document.getElementById('invoice-number').textContent = generateInvoiceNumber();
+            }
+
+            document.getElementById('toggle-edit-btn').addEventListener('click', toggleEditMode);
+            document.getElementById('add-row-btn').addEventListener('click', addRow);
+            document.getElementById('remove-row-btn').addEventListener('click', removeLastRow);
+            document.getElementById('print-btn').addEventListener('click', () => window.print());
             attachSummaryEditListeners();
 
-            // 6. Gắn sự kiện cho các trường thông tin chung (dù ban đầu ở chế độ Read-Only, nhưng cần listeners nếu chuyển sang Edit)
             document.querySelectorAll('.editable-field[data-field-name]').forEach(el => {
-                // Ngăn Enter xuống dòng cho các trường chung
                 el.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') e.preventDefault();
                 });
             });
 
-            // 7. Render giao diện và tính toán ban đầu
+            // Gắn sự kiện cho Excel
+            document.getElementById('export-excel-btn').addEventListener('click', exportToExcel);
+            
+            const fileInput = document.getElementById('import-excel-input');
+            const importBtn = document.getElementById('import-excel-btn');
+            
+            importBtn.addEventListener('click', () => {
+                fileInput.click(); // Kích hoạt input file ẩn
+            });
+            
+            fileInput.addEventListener('change', importFromExcel);
+
             renderTable();
             calculateTotals();
-
-            // Khởi tạo ban đầu ở chế độ Read-Only (đã được xử lý bởi style display:none và contenteditable="false" mặc định)
-            // Nếu bạn muốn mặc định là Edit Mode, hãy gọi toggleEditMode() tại đây.
         };
     </script>
 </body>
